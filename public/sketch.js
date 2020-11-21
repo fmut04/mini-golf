@@ -26,7 +26,7 @@ function setup() {
 	 pickLevel();
 	 addWalls();
 
-	 socket = io.connect('http://localhost:3000');
+	 socket = io.connect('http://10.0.0.2:3000');
 	 socket.on('ballPos', drawOtherBalls);
 	 //socket.on('addBall' , addNewBall)
 }
