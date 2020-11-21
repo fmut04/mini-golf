@@ -26,7 +26,7 @@ function setup() {
 	 pickLevel();
 	 addWalls();
 
-	 socket = io.connect('http://10.0.0.2:3000');
+	 socket = io.connect('https://mini-golf.herokuapp.com/');
 	 socket.on('ballPos', drawOtherBalls);
 	 //socket.on('addBall' , addNewBall)
 }
@@ -176,13 +176,6 @@ collisions()
 	}
 }
 function draw() {
-	// if(drawnOtherBalls)
-	// {
-	// 		background(20);
-	// 		drawnOtherBalls=false;
-	// }
-
-
 
 	 for (var i = 0; i < walls.length; i++) {
 	 	walls[i].show();
@@ -281,24 +274,6 @@ function addWalls(randNum)
 		ballsArr[0].pos.y = STARTINGBALLY;
 	}
 
-	// if(randNum==1)
-	// {
-	// 	walls.push(new wall(200,800,200,150));
-	// 	walls.push(new wall(400,800,400,300));
-	// 	walls.push(new wall(200,150,1200,150));
-	// 	walls.push(new wall(400,300,1000,300));
-	// 	walls.push(new wall(1000,300,1000,800));
-	// 	walls.push(new wall(1200,150,1200,800));
-	// 	walls.push(new wall(1000,800,1200,800));
-	// 	walls.push(new wall(200,800,400,800));
-	//
-	// 	goalX = 1100;
-	// 	goalY = 750;
-	//
-	// 	ballsArr[0].pos.x = 400;
-	// 	ballsArr[0].pos.y = 500;
-	// }
-
 	if(randNum==1)
 	{
 		walls.push(new wall(200,50,650,50));
@@ -345,10 +320,4 @@ function drawOtherBalls(sentBallPos, otherArr)
 		line(otherArr[i].x1+offset,otherArr[i].y1,otherArr[i].x2+offset,otherArr[i].y2);
 	}
 
-	//drawnOtherBalls=true;
-}
-
-function addNewBall()
-{
-	ballsArr.push(new golfBall(0,0))
 }
