@@ -13,22 +13,25 @@ let intersectionY;
 let intersectionPoints = [];
 let strokes=0;
 let socket;
-let ballsec;
-let ballsArr = [];
 let drawnOtherBalls=true;
+let otherConnections=false;
 let offset = 600;
-const STARTINGBALLX = 250;
-const STARTINGBALLY = 700;
+let subVel;
+let levels = [1,2,3,4,5];
+var wallX = 350;
+const STARTINGBALLX = 430;
+const STARTINGBALLY = 750;
 function setup() {
 	createCanvas(windowWidth, windowHeight);
-	 ballsArr.push(new golfBall(STARTINGBALLX,STARTINGBALLY));
-	 //ballsArr.push(new golfBall(1000,400));
+	 ball = new golfBall(STARTINGBALLX,STARTINGBALLY);
+	 levelShuffle(levels);
 	 pickLevel();
-	 addWalls();
 
-	 socket = io.connect('https://mini-golf.herokuapp.com/');
+	 //socket = io.connect('https://mini-golf.herokuapp.com/');
+	 socket = io.connect('localhost:3000');
 	 socket.on('ballPos', drawOtherBalls);
-	 //socket.on('addBall' , addNewBall)
+	 socket.on('newConnection', newConnection);
+	 socket.on('disconnected', disconnected);
 }
 
 class wall {
@@ -69,6 +72,7 @@ class golfBall {
 
 		////////////CREATES LINE FROM BALL TO MOUSE POS////////////////
 		this.mouseVector = createVector(mouseX,mouseY);
+		stroke(30);
 		strokeWeight(3);
 		line(lerp( this.mouseVector.x, this.pos.x, .5 ),lerp( this.mouseVector.y, this.pos.y, .5 ),this.pos.x,this.pos.y);
 
@@ -80,12 +84,16 @@ class golfBall {
 
 	move()
 	{
-		if(velMag>.02)
+		 if(velMag>.02)
 		{
-			velMag-=.12;
+			velMag*=.94;
+		}
+		else{
+			velMag=0;
 		}
 
 		this.vel.setMag(velMag);
+		this.vel.limit(10);
 		this.pos.sub(this.vel);
 
 	}
@@ -97,8 +105,14 @@ launch()
 	if(isMouseClicked && this.vel.mag()<.2)
 	{
 		this.acc = p5.Vector.sub(this.mouseVector, this.pos);
+
 		this.vel.add(this.acc);
-		velMag = dist( this.mouseVector.x, this.mouseVector.y,this.pos.x,this.pos.y)/30;
+		if(abs(this.vel.y) >30 || abs(this.vel.x) >30)
+		{
+			this.vel.mult(.2);
+			console.log("call");
+		}
+		velMag = dist( this.mouseVector.x, this.mouseVector.y,this.pos.x,this.pos.y)/10;
 
 		isMouseClicked = false;
 		strokes++;
@@ -107,19 +121,6 @@ launch()
 
 collisions()
 {
-	if(this.pos.x<20 || this.pos.x>windowWidth-20)
-	{
-		this.vel.x *= -1;
-		velMag -=3;
-		this.pos.sub(this.vel);
-	}
-
-	if(this.pos.y<20 || this.pos.y>windowWidth)
-	{
-		this.vel.y *= -1;
-		velMag -=3;
-	}
-
 	if(dist(this.pos.x,this.pos.y,goalX,goalY)<this.r)
 	{
 			pickLevel();
@@ -146,11 +147,12 @@ collisions()
 				if(dist(intersectionPoints[j].x,intersectionPoints[j].y,this.pos.x,this.pos.y)<this.r/2)
 				{
 						if(walls[i].x1 == walls[i].x2){
-						if( this.pos.y >  walls[i].y2 ||  this.pos.y >  walls[i].y1)
+						if( this.pos.y >  walls[i].y2 &&  this.pos.y <  walls[i].y1)
 						{
 							this.vel.x *= -1;
-							velMag -=.5;
-							this.pos.sub(this.vel);
+							velMag -=1;
+							subVel = this.vel.mult(1);
+							this.pos.sub(subVel);
 
 							stroke(255,0,0);
 							line(walls[i].x1,walls[i].y1, walls[i].x2,walls[i].y2);
@@ -160,8 +162,9 @@ collisions()
 						{
 
 								this.vel.y *= -1;
-								velMag -=.5;
-								this.pos.sub(this.vel);
+								velMag -=1;
+								subVel = this.vel.mult(.8);
+ 								this.pos.sub(subVel);
 
 								stroke(255,0,0);
 								line(walls[i].x1,walls[i].y1, walls[i].x2,walls[i].y2);
@@ -177,26 +180,28 @@ collisions()
 }
 function draw() {
 
+	if(otherConnections)
+	{
+		var sentBallPos = {
+		 x:  ball.pos.x,
+		 y:  ball.pos.y
+	 }
+
+	 socket.emit('ballPos', sentBallPos , walls);
+	}
+	else{
+		 background(0);
+	}
+
 	 for (var i = 0; i < walls.length; i++) {
 	 	walls[i].show();
 	 }
 
-	 ballsArr[0].show();
-	 ballsArr[0].move();
-	 ballsArr[0].launch();
-	 ballsArr[0].collisions();
-	 var sentBallPos = {
-		 x:  ballsArr[0].pos.x,
-		 y:  ballsArr[0].pos.y
-	 }
-
-	 socket.emit('ballPos', sentBallPos , walls);
-	 for(var i=1; i<ballsArr.length; i++)
-	 {
-		ballsArr[i].show();
-	 }
+	 ball.show();
+	 ball.move();
+	 ball.launch();
+	 ball.collisions();
 	 drawText();
-
 }
 
 function mouseClicked()
@@ -218,12 +223,6 @@ else {
 	 return slope;
  }
 	 	return b;
-}
-
-function getIntersectionPoint(m1 , c1, m2, c2)
-{
-	intersectionX = (c2 - c1) / (m1 - m2);
-	intersectionY = (m1*c1 - c2*m2) / m1-m2;
 }
 
 function intersect(x1, y1, x2, y2, x3, y3, x4, y4) {
@@ -258,52 +257,115 @@ function intersect(x1, y1, x2, y2, x3, y3, x4, y4) {
 
 }
 
-function addWalls(randNum)
+function addWalls(levelNum)
 {
-	if(randNum==0)
+	walls.push(new wall(200,50,650,50));
+	walls.push(new wall(650,800,650,50));
+	walls.push(new wall(200,800,650,800));
+	walls.push(new wall(200,800,200,50));
+
+
+	if(levelNum==1)
 	{
-		walls.push(new wall(200,50,650,50));
-		walls.push(new wall(650,50,650,800));
-		walls.push(new wall(200,800,650,800));
-		walls.push(new wall(200,800,200,50));
-
-		goalX = 400;
-		goalY = 100;
-
-		ballsArr[0].pos.x = STARTINGBALLX;
-		ballsArr[0].pos.y = STARTINGBALLY;
-	}
-
-	if(randNum==1)
-	{
-		walls.push(new wall(200,50,650,50));
-		walls.push(new wall(650,50,650,800));
-		walls.push(new wall(200,800,650,800));
-		walls.push(new wall(200,800,200,50));
 		walls.push(new wall(200,400,400,400));
 		walls.push(new wall(400,200,650,200));
 		walls.push(new wall(400,600,650,600));
-		goalX = 400;
-		goalY = 100;
-
-		ballsArr[0].pos.x = STARTINGBALLX;
-		ballsArr[0].pos.y = STARTINGBALLY;
 	}
 
+	if(levelNum==2)
+	{
+		walls.push(new wall(500,250,500,100));
+		walls.push(new wall(400,250,600,250));
+
+		walls.push(new wall(300,450,300,300));
+		walls.push(new wall(200,450,400,450));
+
+		walls.push(new wall(450,650,450,500));
+		walls.push(new wall(350,650,550,650));
+	}
+
+	if(levelNum==3)
+	{
+
+		walls.push(new wall(wallX,600,wallX+150,600));
+		walls.push(new wall(wallX-50,400,wallX+200,400));
+		walls.push(new wall(wallX-100,200,wallX+250,200));
+	}
+
+	if(levelNum==4)
+	{
+		walls.push(new wall(350,600,650,600));
+		walls.push(new wall(200,600,300,600));
+
+		walls.push(new wall(200,400,400,400));
+		walls.push(new wall(500,400,650,400));
+
+		walls.push(new wall(300,200,500,200));
+		walls.push(new wall(200,200,250,200));
+		walls.push(new wall(550,200,650,200));
+	}
+
+	if(levelNum==5)
+	{
+		walls.push(new wall(470,650,650,650));
+		walls.push(new wall(200,650,400,650));
+
+		walls.push(new wall(wallX-100,350,wallX+250,350));
+		walls.push(new wall(430,550,430,350));
+		walls.push(new wall(400,550,460,550));
+
+		walls.push(new wall(300,200,500,200));
+		walls.push(new wall(200,200,250,200));
+		walls.push(new wall(550,200,650,200));
+	}
 
 
 }
 
  function pickLevel()
 {
-	let randNum = Math.floor(random(2));
-	walls = [];
-	addWalls(randNum);
+	if(levels.length>0)
+	{
+		let levelNum = levels[levels.length-1];
+		//let randNum = 5;
+		walls = [];
+		addWalls(levelNum);
+		levels.pop();
+	}
+	else
+	{
+			console.log("You Finished The Game");
+	}
+	resetBall();
 
-		ballsArr[0].vel.x = 0;
-		ballsArr[0].vel.y = 0;
+}
 
+function levelShuffle(array) {
+  var currentIndex = array.length, temporaryValue, randomIndex;
 
+  while (0 !== currentIndex) {
+
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex -= 1;
+
+    temporaryValue = array[currentIndex];
+    array[currentIndex] = array[randomIndex];
+    array[randomIndex] = temporaryValue;
+  }
+
+  return array;
+}
+
+function resetBall()
+{
+	goalX = 400;
+	goalY = 100;
+
+	ball.pos.x = STARTINGBALLX;
+	ball.pos.y = STARTINGBALLY;
+
+	ball.vel.x = 0;
+	ball.vel.y = 0;
 }
 
 function drawOtherBalls(sentBallPos, otherArr)
@@ -313,11 +375,23 @@ function drawOtherBalls(sentBallPos, otherArr)
 	strokeWeight(4);
 	fill(180,0,0);
 	ellipse(sentBallPos.x+offset,sentBallPos.y,30);
-
+	fill(180,0,180);
+	ellipse(400+offset,100,25);
 	for(var i=0; i<otherArr.length; i++)
 	{
 		stroke(255);
 		line(otherArr[i].x1+offset,otherArr[i].y1,otherArr[i].x2+offset,otherArr[i].y2);
 	}
+}
 
+function newConnection()
+{
+	otherConnections=true;
+	console.log("new connection");
+}
+
+function disconnected()
+{
+	otherConnections=false;
+	console.log("new connection");
 }

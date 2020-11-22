@@ -20,15 +20,34 @@ console.log("my server is running");
  var io = socket(server);
 
  io.sockets.on('connection', connection);
-
+ var allClients = [];
  function connection(socket)
  {
    console.log("New Connection");
-   socket.broadcast.emit('addBall')
+   allClients.push(socket);
+
+      socket.on('disconnect', function() {
+      console.log('Got disconnect!');
+      var i = allClients.indexOf(socket);
+      allClients.splice(i, 1);
+      io.sockets.emit('disconnected');
+    })
+    if(allClients.length>1){
+       io.sockets.emit('newConnection');
+     }
+   else {
+     socket.broadcast.emit('newConnection');
+   }
    socket.on('ballPos', getBallPos);
 
    function getBallPos(sentBallPos, walls)
    {
      socket.broadcast.emit('ballPos', sentBallPos, walls);
    }
+ }
+
+ function clientDisconnected(socket)
+ {
+
+   console.log("disconnect");
  }
