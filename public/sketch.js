@@ -38,8 +38,9 @@ function setup() {
 	 inputElem = createInput('');
 	 inputElem.changed(changeUsername);
    inputElem.position(windowWidth/2-50, windowHeight/2+50)
-	 //socket = io.connect('https://mini-golf.herokuapp.com/');
-	 socket = io.connect('localhost:3000');
+
+	 socket = io.connect('https://mini-golf.herokuapp.com/');
+	 //socket = io.connect('localhost:3000');
 	 socket.on('ballPos', drawOtherPlayers);
 	 socket.on('newConnection', newConnection);
 	 socket.on('disconnected', endGame);
