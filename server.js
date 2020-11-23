@@ -26,28 +26,41 @@ console.log("my server is running");
    console.log("New Connection");
    allClients.push(socket);
 
-      socket.on('disconnect', function() {
+      socket.on('disconnect', function()
+      {
       console.log('Got disconnect!');
       var i = allClients.indexOf(socket);
       allClients.splice(i, 1);
       io.sockets.emit('disconnected');
     })
+
     if(allClients.length>1){
        io.sockets.emit('newConnection');
      }
    else {
      socket.broadcast.emit('newConnection');
    }
-   socket.on('ballPos', getBallPos);
 
-   function getBallPos(sentBallPos, walls)
-   {
-     socket.broadcast.emit('ballPos', sentBallPos, walls);
-   }
+   socket.on('ballPos', getBallPos);
+   socket.on('gameEnd', endGame)
+   socket.on('sentUsername', sendUsername);
  }
 
+ function getBallPos(sentBallPos, walls)
+ {
+   socket.broadcast.emit('ballPos', sentBallPos, walls);
+ }
+
+ function sendUsername(username)
+ {
+   socket.broadcast.emit('sentUsername', username);
+ }
+
+ function endGame(winUsername)
+ {
+   io.sockets.emit('gameEnd', winUsername);
+ }
  function clientDisconnected(socket)
  {
-
    console.log("disconnect");
  }

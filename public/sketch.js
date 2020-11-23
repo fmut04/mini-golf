@@ -19,6 +19,14 @@ let offset = 600;
 let subVel;
 let levels = [1,2,3,4,5];
 var wallX = 350;
+var input;
+let username= "Empty";
+let otherUsername= "Empty";
+let inputElem;
+let winningUsername = "";
+let didSendUsername = false;
+let gameStarted=false;
+let gameEnded=false;
 const STARTINGBALLX = 430;
 const STARTINGBALLY = 750;
 function setup() {
@@ -27,11 +35,16 @@ function setup() {
 	 levelShuffle(levels);
 	 pickLevel();
 
+	 inputElem = createInput('');
+	 inputElem.changed(changeUsername);
+   inputElem.position(windowWidth/2-50, windowHeight/2+50)
 	 //socket = io.connect('https://mini-golf.herokuapp.com/');
 	 socket = io.connect('localhost:3000');
-	 socket.on('ballPos', drawOtherBalls);
+	 socket.on('ballPos', drawOtherPlayers);
 	 socket.on('newConnection', newConnection);
-	 socket.on('disconnected', disconnected);
+	 socket.on('disconnected', endGame);
+	 socket.on('sentUsername', getUsername);
+	 socket.on('gameEnd', endGame);
 }
 
 class wall {
@@ -84,6 +97,7 @@ class golfBall {
 
 	move()
 	{
+		////////SLOWS THE BALL DOWN////////////
 		 if(velMag>.02)
 		{
 			velMag*=.94;
@@ -92,8 +106,11 @@ class golfBall {
 			velMag=0;
 		}
 
+		//////SETS THE MAGNITUDE TO THE SLOWED MAG/////
 		this.vel.setMag(velMag);
+		///////////LIMITS THE VEL SO ITS NOT TOO STRONG/////
 		this.vel.limit(10);
+		/////MOVES THE BALL IN THE DIRECTION OF VEL//////
 		this.pos.sub(this.vel);
 
 	}
@@ -146,12 +163,13 @@ collisions()
 
 				if(dist(intersectionPoints[j].x,intersectionPoints[j].y,this.pos.x,this.pos.y)<this.r/2)
 				{
-						if(walls[i].x1 == walls[i].x2){
+						if(walls[i].x1 == walls[i].x2)
+						{
 						if( this.pos.y >  walls[i].y2 &&  this.pos.y <  walls[i].y1)
 						{
 							this.vel.x *= -1;
 							velMag -=1;
-							subVel = this.vel.mult(1);
+							subVel = this.vel.mult(.9);
 							this.pos.sub(subVel);
 
 							stroke(255,0,0);
@@ -160,17 +178,14 @@ collisions()
 					}
 						else if(walls[i].y1 == walls[i].y2 &&  this.pos.x > walls[i].x1 && this.pos.x < walls[i].x2)
 						{
-
 								this.vel.y *= -1;
 								velMag -=1;
-								subVel = this.vel.mult(.8);
+								subVel = this.vel.mult(.9);
  								this.pos.sub(subVel);
 
 								stroke(255,0,0);
 								line(walls[i].x1,walls[i].y1, walls[i].x2,walls[i].y2);
-
 						}
-
 				}
 			}
 			}
@@ -180,17 +195,18 @@ collisions()
 }
 function draw() {
 
-	if(otherConnections)
+	if(gameStarted && !gameEnded)
+	{
+	if(otherConnections && otherUsername!="Empty")
 	{
 		var sentBallPos = {
 		 x:  ball.pos.x,
 		 y:  ball.pos.y
 	 }
-
 	 socket.emit('ballPos', sentBallPos , walls);
 	}
-	else{
-		 background(0);
+	else {
+		background(0);
 	}
 
 	 for (var i = 0; i < walls.length; i++) {
@@ -201,11 +217,24 @@ function draw() {
 	 ball.move();
 	 ball.launch();
 	 ball.collisions();
-	 drawText();
+	 drawStrokes();
 }
+else if(gameEnded)
+{
+	drawGameEnd();
+}
+else {
+		background(0);
+		drawStart();
+}
+}
+
+
+
 
 function mouseClicked()
 {
+	if(gameStarted)
 	isMouseClicked=true;
 }
 
@@ -247,16 +276,61 @@ function intersect(x1, y1, x2, y2, x3, y3, x4, y4) {
     return {x, y}
 }
 
-		function drawText()
+		function drawStrokes()
+{
+
+	noFill()
+	strokeWeight(1);
+	stroke(255);
+	textFont("normal" , 30);
+	if(otherUsername!="Empty" && otherConnections)
+	{
+		text(otherUsername, 1050, 850);
+	}
+
+
+	text("Strokes " + strokes , 250 ,850);
+	text( username , 450 ,850);
+}
+ function changeUsername()
+{
+	username = this.value();
+	inputElem.position(-200,-200);
+	if(otherConnections)
+	{
+		socket.emit("sentUsername", username);
+		didSendUsername = true;
+	}
+	gameStarted=true;
+}
+function drawStart()
+{
+	noFill()
+	strokeWeight(1);
+	stroke(0,50,200);
+	textFont("normal" , 80);
+	text("Welcome To Mini Golf", windowWidth/2-350,windowHeight/2-300);
+	text("Enter Username To Start", windowWidth/2-350,windowHeight/2-100);
+}
+
+function drawGameEnd()
 {
 	noFill()
 	strokeWeight(1);
 	stroke(255);
-	textFont("normal" , 50);
-	text("Strokes " + strokes , 300 ,900);
+	textFont("normal" , 80);
+	background(0);
+	text("Game Over", windowWidth/2-200,windowHeight/2-300);
+	text(winningUsername + "  Has Won!", windowWidth/2-300,windowHeight/2-100);
+	text("Play Again", windowWidth/2-200,windowHeight/2+50)
+	if(mouseX>windowWidth/2-225 && mouseX<windowWidth/2-550 && mouseY>windowHeight/2-20 && mouseY<windowHeight/2-385)
+	{
+		fill(230);
+		console.log("mouse over");
+	}
+	rect(windowWidth/2-225,windowHeight/2-20, windowWidth/2-550,windowHeight/2-385);
 
 }
-
 function addWalls(levelNum)
 {
 	walls.push(new wall(200,50,650,50));
@@ -324,7 +398,7 @@ function addWalls(levelNum)
 
  function pickLevel()
 {
-	if(levels.length>0)
+	if(levels.length>4)
 	{
 		let levelNum = levels[levels.length-1];
 		//let randNum = 5;
@@ -335,6 +409,7 @@ function addWalls(levelNum)
 	else
 	{
 			console.log("You Finished The Game");
+			socket.emit("gameEnd", username);
 	}
 	resetBall();
 
@@ -368,7 +443,7 @@ function resetBall()
 	ball.vel.y = 0;
 }
 
-function drawOtherBalls(sentBallPos, otherArr)
+function drawOtherPlayers(sentBallPos, otherArr)
 {
 	background(0);
 	stroke(0);
@@ -377,21 +452,41 @@ function drawOtherBalls(sentBallPos, otherArr)
 	ellipse(sentBallPos.x+offset,sentBallPos.y,30);
 	fill(180,0,180);
 	ellipse(400+offset,100,25);
+	strokeWeight(1);
+	stroke(255);
 	for(var i=0; i<otherArr.length; i++)
 	{
-		stroke(255);
 		line(otherArr[i].x1+offset,otherArr[i].y1,otherArr[i].x2+offset,otherArr[i].y2);
 	}
 }
 
+function getUsername(enemyUsername)
+{
+	otherUsername = enemyUsername;
+	if(!didSendUsername)
+	{
+		socket.emit("sentUsername", username);
+		didSendUsername=true;
+	}
+}
+function endGame(winUsername)
+{
+		gameEnded=true;
+		winningUsername=winUsername;
+}
+
+function resetGame()
+{
+	resetBall();
+}
 function newConnection()
 {
 	otherConnections=true;
-	console.log("new connection");
 }
 
 function disconnected()
 {
 	otherConnections=false;
-	console.log("new connection");
+	didSendUsername=false;
+	otherUsername = "Empty";
 }
