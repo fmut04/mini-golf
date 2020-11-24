@@ -27,6 +27,7 @@ let winningUsername = "";
 let didSendUsername = false;
 let gameStarted=false;
 let gameEnded=false;
+let restarted=false;
 const STARTINGBALLX = 430;
 const STARTINGBALLY = 750;
 function setup() {
@@ -43,8 +44,8 @@ function setup() {
 	 //socket = io.connect('localhost:3000');
 	 socket.on('ballPos', drawOtherPlayers);
 	 socket.on('newConnection', newConnection);
-	 socket.on('disconnected', endGame);
-	 socket.on('sentUsername', getUsername);
+	 socket.on('disconnected', disconnected);
+	 socket.on('sendingUsername', getUsername);
 	 socket.on('gameEnd', endGame);
 }
 
@@ -198,7 +199,7 @@ function draw() {
 
 	if(gameStarted && !gameEnded)
 	{
-	if(otherConnections && otherUsername!="Empty")
+	if(otherConnections && otherUsername!="Empty" )
 	{
 		var sentBallPos = {
 		 x:  ball.pos.x,
@@ -235,7 +236,7 @@ else {
 
 function mouseClicked()
 {
-	if(gameStarted)
+	if(gameStarted || gameEnded)
 	isMouseClicked=true;
 }
 
@@ -323,13 +324,22 @@ function drawGameEnd()
 	background(0);
 	text("Game Over", windowWidth/2-200,windowHeight/2-300);
 	text(winningUsername + "  Has Won!", windowWidth/2-300,windowHeight/2-100);
-	text("Play Again", windowWidth/2-200,windowHeight/2+50)
-	if(mouseX>windowWidth/2-225 && mouseX<windowWidth/2-550 && mouseY>windowHeight/2-20 && mouseY<windowHeight/2-385)
+
+
+	if(mouseX>windowWidth/2-225 && mouseX<windowWidth/2-225+400 && mouseY>windowHeight/2-20 && mouseY<windowHeight/2-20 + 100)
 	{
-		fill(230);
-		console.log("mouse over");
+		fill(50);
+		if(isMouseClicked)
+		{
+			resetGame();
+			isMouseClicked=false;
+			restarted=true;
+		}
 	}
-	rect(windowWidth/2-225,windowHeight/2-20, windowWidth/2-550,windowHeight/2-385);
+	rect(windowWidth/2-225,windowHeight/2-20, 400,100);
+	noFill();
+	text("Play Again", windowWidth/2-200,windowHeight/2+50)
+
 
 }
 function addWalls(levelNum)
@@ -399,7 +409,7 @@ function addWalls(levelNum)
 
  function pickLevel()
 {
-	if(levels.length>4)
+	if(levels.length>1)
 	{
 		let levelNum = levels[levels.length-1];
 		//let randNum = 5;
@@ -442,6 +452,7 @@ function resetBall()
 
 	ball.vel.x = 0;
 	ball.vel.y = 0;
+
 }
 
 function drawOtherPlayers(sentBallPos, otherArr)
@@ -478,7 +489,12 @@ function endGame(winUsername)
 
 function resetGame()
 {
-	resetBall();
+	levels = [1,2,3,4,5];
+	levelShuffle(levels);
+	pickLevel();
+	gameEnded=false;
+	gameStarted=true;
+	restarted=false;
 }
 function newConnection()
 {
